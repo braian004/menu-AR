@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Visor Mi Menú 3D</title>
+
+    <!-- Material Icons para el ícono AR -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+
+    <!-- Model Viewer CDN -->
+    <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.4.0/model-viewer.min.js"></script>
+
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #ffffff;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+        }
+
+        .viewer-wrapper {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            background: #ffffff;
+        }
+
+        model-viewer {
+            width: 100%;
+            height: 100%;
+            display: block;
+            background-color: #ffffff;
+            touch-action: none;
+        }
+
+        /* Progress bar de carga */
+        model-viewer::part(default-progress-bar) {
+            height: 3px;
+            background-color: #BC1823;
+            border-radius: 999px;
+        }
+
+        /* Mensajes de estado e instrucciones */
+        .msg {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #444444;
+            z-index: 20;
+            text-align: center;
+            max-width: 90%;
+            font-size: 14px;
+        }
+
+        .msg .ar-instructions {
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .msg .emoji {
+            font-size: 32px;
+            display: block;
+            margin-bottom: 8px;
+        }
+
+        .msg .highlight {
+            color: #BC1823;
+            font-weight: 700;
+            font-size: 15px;
+            margin-top: 4px;
+            display: block;
+        }
+
+        .msg .arrow {
+            font-size: 24px;
+            color: #BC1823;
+            display: block;
+            margin-top: 10px;
+            animation: bounce 1s infinite;
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-6px); }
+        }
+
+        /* Marca de agua inferior */
+        .branding-bar {
+            position: absolute;
+            left: 16px;
+            bottom: 12px;
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 11px;
+            text-shadow: 0 1px 3px rgba(255, 255, 255, 0.5);
+        }
+
+        .branding-title {
+            font-weight: 600;
+            color: rgba(0, 0, 0, 0.45);
+        }
+
+        .branding-link {
+            font-weight: 600;
+            color: #BC1823;
+            text-decoration: none;
+            font-size: 11px;
+        }
+
+        .branding-link:hover {
+            text-decoration: underline;
+        }
+
+        /* Botón AR personalizado */
+        .ar-button {
+            position: absolute;
+            right: 16px;
+            bottom: 16px;
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            border: none;
+            outline: none;
+            background: #BC1823;
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+            cursor: pointer;
+            z-index: 10;
+        }
+
+        .ar-button:active {
+            background: #a0141e;
+        }
+
+        .ar-button .material-icons {
+            font-size: 28px;
+            color: #ffffff;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="viewer-wrapper">
+        <model-viewer 
+            id="viewer" 
+            ar 
+            ar-modes="scene-viewer quick-look webxr" 
+            camera-controls 
+            auto-rotate 
+            loading="eager">
+            
+            <!-- Botón AR custom -->
+            <button slot="ar-button" class="ar-button" aria-label="Ver en realidad aumentada">
+                <span class="material-icons">view_in_ar</span>
+            </button>
+        </model-viewer>
+
+        <!-- Marca de agua / crédito inferior -->
+        <div class="branding-bar">
+            <span class="branding-title">Mi Menú 3D</span>
+            <a class="branding-link" href="https://mimenu3d.com" target="_blank" rel="noopener">
+                Visitar
+            </a>
+        </div>
+
+        <!-- Mensaje de estado -->
+        <div class="msg" id="msg">⏳ Cargando modelo...</div>
+    </div>
+
+    <script>
+        const viewer = document.getElementById('viewer');
+        const msg = document.getElementById('msg');
+        const params = new URLSearchParams(location.search);
+        const menuId = params.get('id');
+
+        const API_URL = '/api/obtenerModelo';
+
+        if (menuId) {
+            fetch(`${API_URL}?id=${menuId}`)
+                .then((res) => {
+                    if (!res.ok) throw new Error('Menú no encontrado');
+                    return res.json();
+                })
+                .then((data) => {
+                    const url = data.url || '';
+                    const isUSDZ = url.toLowerCase().includes('.usdz');
+                    const isIOS = /(iPhone|iPad|iPod)/i.test(navigator.userAgent);
+
+                    if (isUSDZ) {
+                        console.log('📱 Archivo USDZ detectado - Solo AR disponible');
+                        viewer.setAttribute('ios-src', url);
+
+                        if (isIOS) {
+                            msg.innerHTML = `
+                                <div class="ar-instructions">
+                                    <div>Este modelo está disponible en</div>
+                                    <span class="highlight">Realidad Aumentada</span>
+                                    <div style="margin-top: 8px;">Presiona el botón AR para verlo</div>
+                                    <span class="arrow">↓</span>
+                                </div>
+                            `;
+                        } else {
+                            msg.innerHTML = `
+                                <div class="ar-instructions">
+                                    <span class="emoji">⚠️</span>
+                                    <div>Este modelo requiere</div>
+                                    <span class="highlight">iPhone o iPad</span>
+                                    <div style="margin-top: 8px; font-size: 12px; opacity: 0.8;">
+                                        La Realidad Aumentada en USDZ solo funciona en dispositivos iOS
+                                    </div>
+                                </div>
+                            `;
+                        }
+                    } else {
+                        console.log('✅ Archivo GLB detectado - Previsualización habilitada');
+                        if (url) {
+                            viewer.src = url;
+                        }
+
+                        if (data.urlUsdz) {
+                            viewer.setAttribute('ios-src', data.urlUsdz);
+                            console.log('✅ USDZ adicional configurado para AR en iOS');
+                        }
+                    }
+
+                    if (!url) {
+                        throw new Error('No hay modelo disponible');
+                    }
+                })
+                .catch((err) => {
+                    console.error('Error:', err);
+                    msg.innerHTML = '❌ Modelo no disponible';
+                });
+
+            viewer.addEventListener('load', () => {
+                console.log('✅ Modelo cargado');
+                msg.style.display = 'none';
+            });
+
+            viewer.addEventListener('error', (e) => {
+                console.error('Error al cargar:', e);
+                msg.innerHTML = '❌ Error al cargar modelo<br><small>Verifica que el archivo sea válido</small>';
+            });
+        } else {
+            msg.innerHTML = '❌ Falta ID del menú';
+        }
+    </script>
+</body>
+</html>
